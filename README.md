@@ -318,9 +318,9 @@ MIT License - see the [LICENSE](LICENSE) file for details.
 ## 🔗 Links
 
 - [Website](https://clawbee.pro)
-- [Documentation](https://docs.clawbee.pro)
+- [Documentation](https://clawbee.pro/docs)
 - [Skill Marketplace](https://clawbee.pro/marketplace)
-- [Discord Community](https://discord.gg/clawbee)
+- [Discord Community](https://discord.gg/y34Nvc7N36)
 - [GitHub](https://github.com/clawbeepro/clawbee)
 - [npm](https://www.npmjs.com/package/clawbee)
 

@@ -1,6 +1,6 @@
 {
   "name": "clawbee",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "ClawBee - Your Personal AI, Endless Possibilities. AI assistant that runs locally and connects to any chat app. Supports Emergent Universal Key for GPT-5, Claude 4, and Gemini 3.",
   "main": "lib/index.js",
   "bin": {

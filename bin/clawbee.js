@@ -19,7 +19,7 @@ const axios = require('axios');
 const http = require('http');
 const readline = require('readline');
 
-const VERSION = '2.2.0';
+const VERSION = '2.2.1';
 const CONFIG_DIR = path.join(os.homedir(), '.config', 'clawbee');
 const DATA_DIR = path.join(os.homedir(), '.local', 'share', 'clawbee');
 const LOG_FILE = path.join(DATA_DIR, 'logs', 'clawbee.log');
@@ -584,8 +584,8 @@ program
     console.log(chalk.yellow('  clawbee start') + '       - Start daemon with integrations');
     console.log(chalk.yellow('  clawbee skills') + '      - Manage skills');
     console.log(chalk.yellow('  clawbee help') + '        - Show all commands');
-    console.log('\n' + chalk.gray('Documentation: https://docs.clawbee.pro'));
-    console.log(chalk.gray('Community: https://discord.gg/clawbee\n'));
+    console.log('\n' + chalk.gray('Documentation: https://clawbee.pro/docs'));
+    console.log(chalk.gray('Community: https://discord.gg/y34Nvc7N36\n'));
     
     log('Onboarding completed successfully');
   });
@@ -1487,8 +1487,8 @@ program
     console.log(chalk.cyan('Homepage:     ') + 'https://clawbee.pro');
     console.log(chalk.cyan('GitHub:       ') + 'https://github.com/clawbeepro/clawbee');
     console.log(chalk.cyan('npm:          ') + 'https://www.npmjs.com/package/clawbee');
-    console.log(chalk.cyan('Docs:         ') + 'https://docs.clawbee.pro');
-    console.log(chalk.cyan('Discord:      ') + 'https://discord.gg/clawbee');
+    console.log(chalk.cyan('Docs:         ') + 'https://clawbee.pro/docs');
+    console.log(chalk.cyan('Discord:      ') + 'https://discord.gg/y34Nvc7N36');
     console.log(chalk.cyan('License:      ') + 'MIT');
     console.log('');
     console.log(chalk.cyan('Config Dir:   ') + CONFIG_DIR);
