@@ -5,6 +5,7 @@
  * https://clawbee.pro
  * 
  * A fully functional AI assistant that runs locally
+ * Supports multiple AI providers including Emergent Universal Key
  */
 
 const { program } = require('commander');
@@ -18,7 +19,7 @@ const axios = require('axios');
 const http = require('http');
 const readline = require('readline');
 
-const VERSION = '2.0.0';
+const VERSION = '2.2.0';
 const CONFIG_DIR = path.join(os.homedir(), '.config', 'clawbee');
 const DATA_DIR = path.join(os.homedir(), '.local', 'share', 'clawbee');
 const LOG_FILE = path.join(DATA_DIR, 'logs', 'clawbee.log');
@@ -37,6 +38,59 @@ const logo = chalk.yellow(`
 const tagline = chalk.cyan('         🐝 Your Personal AI, Endless Possibilities. 🐝\n');
 
 const miniLogo = chalk.yellow('🐝 ClawBee');
+
+// ==================== Available Models ====================
+
+const AVAILABLE_MODELS = {
+  emergent: {
+    openai: [
+      { name: 'GPT-5.2 (Latest & Most Capable)', value: 'gpt-5.2' },
+      { name: 'GPT-5.1 (Recommended)', value: 'gpt-5.1' },
+      { name: 'GPT-5', value: 'gpt-5' },
+      { name: 'GPT-5 Mini (Fast)', value: 'gpt-5-mini' },
+      { name: 'GPT-4.1', value: 'gpt-4.1' },
+      { name: 'GPT-4o', value: 'gpt-4o' },
+      { name: 'O3 (Reasoning)', value: 'o3' },
+      { name: 'O4-Mini (Fast Reasoning)', value: 'o4-mini' }
+    ],
+    anthropic: [
+      { name: 'Claude 4 Sonnet (Recommended)', value: 'claude-4-sonnet-20250514' },
+      { name: 'Claude 4 Opus (Most Capable)', value: 'claude-4-opus-20250514' },
+      { name: 'Claude Opus 4.6', value: 'claude-opus-4-6' },
+      { name: 'Claude Sonnet 4.5', value: 'claude-sonnet-4-5-20250929' },
+      { name: 'Claude Haiku 4.5 (Fast)', value: 'claude-haiku-4-5-20251001' }
+    ],
+    gemini: [
+      { name: 'Gemini 2.5 Pro (Recommended)', value: 'gemini-2.5-pro' },
+      { name: 'Gemini 2.5 Flash', value: 'gemini-2.5-flash' },
+      { name: 'Gemini 3 Flash Preview', value: 'gemini-3-flash-preview' },
+      { name: 'Gemini 3 Pro Preview', value: 'gemini-3-pro-preview' },
+      { name: 'Gemini 2.0 Flash (Fast)', value: 'gemini-2.0-flash' }
+    ]
+  },
+  openai: [
+    { name: 'GPT-4 Turbo', value: 'gpt-4-turbo' },
+    { name: 'GPT-4', value: 'gpt-4' },
+    { name: 'GPT-4o', value: 'gpt-4o' },
+    { name: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' }
+  ],
+  anthropic: [
+    { name: 'Claude 3 Opus', value: 'claude-3-opus-20240229' },
+    { name: 'Claude 3 Sonnet', value: 'claude-3-sonnet-20240229' },
+    { name: 'Claude 3 Haiku', value: 'claude-3-haiku-20240307' }
+  ],
+  google: [
+    { name: 'Gemini Pro', value: 'gemini-pro' },
+    { name: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro' }
+  ],
+  local: [
+    { name: 'Llama 2', value: 'llama2' },
+    { name: 'Llama 3', value: 'llama3' },
+    { name: 'Mistral', value: 'mistral' },
+    { name: 'CodeLlama', value: 'codellama' },
+    { name: 'Custom (enter name)', value: 'custom' }
+  ]
+};
 
 // ==================== Utility Functions ====================
 
@@ -59,7 +113,8 @@ function ensureDirectories() {
     path.join(DATA_DIR, 'skills'),
     path.join(DATA_DIR, 'memory'),
     path.join(DATA_DIR, 'logs'),
-    path.join(DATA_DIR, 'integrations')
+    path.join(DATA_DIR, 'integrations'),
+    path.join(DATA_DIR, 'integrations', 'whatsapp')
   ];
   
   dirs.forEach(dir => {
@@ -153,12 +208,31 @@ function isDaemonRunning() {
 
 // ==================== AI Provider Functions ====================
 
+/**
+ * Detect actual provider from model name (for Emergent Universal Key)
+ */
+function detectProviderFromModel(model) {
+  const modelLower = model.toLowerCase();
+  
+  if (modelLower.startsWith('gpt') || modelLower.startsWith('o1') || modelLower.startsWith('o3') || modelLower.startsWith('o4')) {
+    return 'openai';
+  }
+  if (modelLower.startsWith('claude')) {
+    return 'anthropic';
+  }
+  if (modelLower.startsWith('gemini')) {
+    return 'google';
+  }
+  
+  return 'openai'; // Default
+}
+
 async function callOpenAI(messages, config) {
   try {
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: config.ai.model || 'gpt-4',
+        model: config.ai.model || 'gpt-5.2',
         messages: messages,
         temperature: config.ai.temperature || 0.7,
         max_tokens: config.ai.maxTokens || 2048
@@ -167,7 +241,8 @@ async function callOpenAI(messages, config) {
         headers: {
           'Authorization': `Bearer ${config.ai.apiKey}`,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 120000
       }
     );
     return response.data.choices[0].message.content;
@@ -184,17 +259,21 @@ async function callAnthropic(messages, config) {
     const response = await axios.post(
       'https://api.anthropic.com/v1/messages',
       {
-        model: config.ai.model || 'claude-3-opus-20240229',
+        model: config.ai.model || 'claude-4-sonnet-20250514',
         max_tokens: config.ai.maxTokens || 2048,
         system: systemMessage,
-        messages: userMessages
+        messages: userMessages.map(m => ({
+          role: m.role === 'assistant' ? 'assistant' : 'user',
+          content: m.content
+        }))
       },
       {
         headers: {
           'x-api-key': config.ai.apiKey,
           'anthropic-version': '2023-06-01',
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 120000
       }
     );
     return response.data.content[0].text;
@@ -205,15 +284,40 @@ async function callAnthropic(messages, config) {
 
 async function callGoogleAI(messages, config) {
   try {
-    const contents = messages.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }]
-    }));
+    const contents = [];
+    let systemInstruction = '';
+
+    for (const msg of messages) {
+      if (msg.role === 'system') {
+        systemInstruction = msg.content;
+      } else {
+        contents.push({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }]
+        });
+      }
+    }
+
+    const requestBody = {
+      contents,
+      generationConfig: {
+        temperature: config.ai.temperature || 0.7,
+        maxOutputTokens: config.ai.maxTokens || 2048
+      }
+    };
+
+    if (systemInstruction) {
+      requestBody.systemInstruction = { parts: [{ text: systemInstruction }] };
+    }
     
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/${config.ai.model || 'gemini-pro'}:generateContent?key=${config.ai.apiKey}`,
-      { contents },
-      { headers: { 'Content-Type': 'application/json' } }
+      `https://generativelanguage.googleapis.com/v1beta/models/${config.ai.model || 'gemini-2.5-pro'}:generateContent`,
+      requestBody,
+      {
+        params: { key: config.ai.apiKey },
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 120000
+      }
     );
     return response.data.candidates[0].content.parts[0].text;
   } catch (error) {
@@ -229,8 +333,13 @@ async function callLocalModel(messages, config) {
       {
         model: config.ai.model || 'llama2',
         messages: messages,
-        stream: false
-      }
+        stream: false,
+        options: {
+          temperature: config.ai.temperature || 0.7,
+          num_predict: config.ai.maxTokens || 2048
+        }
+      },
+      { timeout: 180000 }
     );
     return response.data.message.content;
   } catch (error) {
@@ -242,7 +351,7 @@ async function getAIResponse(userMessage, config) {
   const memory = getMemory();
   const recentContext = memory.conversations.slice(-10);
   
-  const systemPrompt = `You are ClawBee, a helpful personal AI assistant. You are friendly, efficient, and always try to help the user accomplish their tasks. The user's name is ${config.user.name}. Current date: ${new Date().toLocaleDateString()}`;
+  const systemPrompt = `You are ClawBee, a helpful personal AI assistant. You are friendly, efficient, and always try to help the user accomplish their tasks. The user's name is ${config.user.name}. Current date: ${new Date().toLocaleDateString()}. Keep your responses concise but helpful.`;
   
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -250,17 +359,25 @@ async function getAIResponse(userMessage, config) {
     { role: 'user', content: userMessage }
   ];
   
-  switch (config.ai.provider) {
+  let provider = config.ai.provider;
+  
+  // For Emergent Universal Key, detect the actual provider from model name
+  if (provider === 'emergent') {
+    provider = detectProviderFromModel(config.ai.model);
+  }
+  
+  switch (provider) {
     case 'openai':
       return await callOpenAI(messages, config);
     case 'anthropic':
       return await callAnthropic(messages, config);
     case 'google':
+    case 'gemini':
       return await callGoogleAI(messages, config);
     case 'local':
       return await callLocalModel(messages, config);
     default:
-      throw new Error(`Unknown AI provider: ${config.ai.provider}`);
+      throw new Error(`Unknown AI provider: ${provider}`);
   }
 }
 
@@ -312,10 +429,23 @@ program
         name: 'aiProvider',
         message: 'Which AI provider would you like to use?',
         choices: [
-          { name: 'OpenAI (GPT-4, GPT-4 Turbo)', value: 'openai' },
+          { name: chalk.yellow('★ Emergent Universal Key (All models with one key)'), value: 'emergent' },
+          new inquirer.Separator('─────────────────────────'),
+          { name: 'OpenAI (GPT-4, GPT-4o)', value: 'openai' },
           { name: 'Anthropic (Claude 3)', value: 'anthropic' },
-          { name: 'Google (Gemini Pro)', value: 'google' },
+          { name: 'Google (Gemini)', value: 'google' },
           { name: 'Local Model (Ollama)', value: 'local' }
+        ]
+      },
+      {
+        type: 'list',
+        name: 'emergentProvider',
+        message: 'Which AI family do you want to use?',
+        when: (answers) => answers.aiProvider === 'emergent',
+        choices: [
+          { name: 'OpenAI (GPT-5.x, O3, O4)', value: 'openai' },
+          { name: 'Anthropic (Claude 4.x)', value: 'anthropic' },
+          { name: 'Google (Gemini 2.x, 3.x)', value: 'gemini' }
         ]
       },
       {
@@ -323,34 +453,10 @@ program
         name: 'model',
         message: 'Which model would you like to use?',
         choices: (answers) => {
-          switch (answers.aiProvider) {
-            case 'openai':
-              return [
-                { name: 'GPT-4 Turbo (Recommended)', value: 'gpt-4-turbo-preview' },
-                { name: 'GPT-4', value: 'gpt-4' },
-                { name: 'GPT-3.5 Turbo (Faster, cheaper)', value: 'gpt-3.5-turbo' }
-              ];
-            case 'anthropic':
-              return [
-                { name: 'Claude 3 Opus (Most capable)', value: 'claude-3-opus-20240229' },
-                { name: 'Claude 3 Sonnet (Balanced)', value: 'claude-3-sonnet-20240229' },
-                { name: 'Claude 3 Haiku (Fast)', value: 'claude-3-haiku-20240307' }
-              ];
-            case 'google':
-              return [
-                { name: 'Gemini Pro', value: 'gemini-pro' },
-                { name: 'Gemini Pro Vision', value: 'gemini-pro-vision' }
-              ];
-            case 'local':
-              return [
-                { name: 'Llama 2', value: 'llama2' },
-                { name: 'Mistral', value: 'mistral' },
-                { name: 'CodeLlama', value: 'codellama' },
-                { name: 'Custom (enter name)', value: 'custom' }
-              ];
-            default:
-              return [{ name: 'Default', value: 'default' }];
+          if (answers.aiProvider === 'emergent') {
+            return AVAILABLE_MODELS.emergent[answers.emergentProvider] || AVAILABLE_MODELS.emergent.openai;
           }
+          return AVAILABLE_MODELS[answers.aiProvider] || [{ name: 'Default', value: 'default' }];
         }
       },
       {
@@ -362,7 +468,17 @@ program
       {
         type: 'password',
         name: 'apiKey',
-        message: (answers) => `Enter your ${answers.aiProvider === 'openai' ? 'OpenAI' : answers.aiProvider === 'anthropic' ? 'Anthropic' : 'Google'} API key:`,
+        message: (answers) => {
+          if (answers.aiProvider === 'emergent') {
+            return 'Enter your Emergent Universal Key:';
+          }
+          const providerNames = {
+            openai: 'OpenAI',
+            anthropic: 'Anthropic', 
+            google: 'Google'
+          };
+          return `Enter your ${providerNames[answers.aiProvider]} API key:`;
+        },
         when: (answers) => answers.aiProvider !== 'local',
         validate: (input) => input.length > 0 || 'API key is required'
       },
@@ -385,7 +501,7 @@ program
         name: 'integrations',
         message: 'Which platforms would you like to connect? (You can set these up later)',
         choices: [
-          { name: 'WhatsApp', value: 'whatsapp' },
+          { name: 'WhatsApp (via QR code)', value: 'whatsapp' },
           { name: 'Telegram', value: 'telegram' },
           { name: 'Discord', value: 'discord' },
           { name: 'Slack', value: 'slack' },
@@ -453,7 +569,7 @@ program
     if (answers.aiProvider !== 'local') {
       const testSpinner = ora('Testing AI connection...').start();
       try {
-        await getAIResponse('Hello, this is a test message. Please respond with "Connection successful!"', config);
+        await getAIResponse('Hello, this is a test. Respond with "Connection successful!"', config);
         testSpinner.succeed('AI connection successful!');
       } catch (error) {
         testSpinner.fail(`AI connection failed: ${error.message}`);
@@ -463,9 +579,9 @@ program
     
     console.log('\n' + chalk.green('✨ ClawBee is ready to go!'));
     console.log('\n' + chalk.cyan('Quick commands:'));
-    console.log(chalk.yellow('  clawbee start') + '       - Start the ClawBee daemon');
     console.log(chalk.yellow('  clawbee chat') + '        - Chat in terminal');
-    console.log(chalk.yellow('  clawbee connect <app>') + ' - Connect a chat app');
+    console.log(chalk.yellow('  clawbee connect <app>') + ' - Connect a chat app (whatsapp, telegram, etc.)');
+    console.log(chalk.yellow('  clawbee start') + '       - Start daemon with integrations');
     console.log(chalk.yellow('  clawbee skills') + '      - Manage skills');
     console.log(chalk.yellow('  clawbee help') + '        - Show all commands');
     console.log('\n' + chalk.gray('Documentation: https://docs.clawbee.pro'));
@@ -477,9 +593,12 @@ program
 // ===== START COMMAND =====
 program
   .command('start')
-  .description('Start the ClawBee daemon')
+  .description('Start the ClawBee daemon with integrations')
   .option('-p, --port <port>', 'Port to run on', '3210')
-  .option('-d, --detach', 'Run in background')
+  .option('--whatsapp', 'Start WhatsApp integration')
+  .option('--telegram', 'Start Telegram integration')
+  .option('--discord', 'Start Discord integration')
+  .option('--all', 'Start all configured integrations')
   .action(async (options) => {
     const config = getConfig();
     if (!config) {
@@ -498,24 +617,102 @@ program
     
     const spinner = ora('Starting ClawBee daemon...').start();
     
-    // Create HTTP server for integrations
+    // Message handler for all integrations
+    const handleMessage = async (message, context) => {
+      log(`Message from ${context.platform}: ${message.substring(0, 50)}...`);
+      
+      // Add to memory
+      addToMemory('user', message);
+      
+      // Get AI response
+      const response = await getAIResponse(message, config);
+      
+      // Add response to memory
+      addToMemory('assistant', response);
+      
+      return response;
+    };
+    
+    // Create HTTP server for status
     const server = http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ 
         status: 'running', 
         version: VERSION,
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        integrations: Object.keys(config.integrations).filter(i => config.integrations[i].enabled)
       }));
     });
     
-    server.listen(options.port, () => {
+    server.listen(options.port, async () => {
       // Save PID
       fs.writeFileSync(getPidPath(), process.pid.toString());
       
       spinner.succeed(`ClawBee daemon started on port ${options.port}`);
       console.log(chalk.green(`\n🐝 Hello ${config.user.name}! ClawBee is ready.`));
       console.log(chalk.gray(`   API endpoint: http://localhost:${options.port}`));
-      console.log(chalk.gray('   Press Ctrl+C to stop\n'));
+      
+      // Start integrations
+      const startAll = options.all;
+      
+      // WhatsApp Integration
+      if ((startAll || options.whatsapp) && config.integrations.whatsapp) {
+        try {
+          console.log(chalk.cyan('\n📱 Starting WhatsApp integration...'));
+          const { WhatsAppBot } = require('../lib/integrations/whatsapp');
+          const whatsapp = new WhatsAppBot();
+          
+          await whatsapp.start(handleMessage, {
+            onQR: (qr) => {
+              config.integrations.whatsapp.configured = false;
+              saveConfig(config);
+            },
+            onStatus: (status, msg) => {
+              if (status === 'ready') {
+                config.integrations.whatsapp.configured = true;
+                config.integrations.whatsapp.enabled = true;
+                saveConfig(config);
+                console.log(chalk.green('✓ WhatsApp connected successfully!'));
+              }
+            }
+          });
+        } catch (error) {
+          console.log(chalk.red(`WhatsApp Error: ${error.message}`));
+          console.log(chalk.gray('Make sure whatsapp-web.js is installed: npm install whatsapp-web.js qrcode-terminal'));
+        }
+      }
+      
+      // Telegram Integration
+      if ((startAll || options.telegram) && config.integrations.telegram?.configured) {
+        try {
+          console.log(chalk.cyan('\n📨 Starting Telegram integration...'));
+          const { TelegramBot } = require('../lib/integrations/telegram');
+          const telegram = new TelegramBot(config.integrations.telegram.token);
+          await telegram.startPolling(handleMessage);
+          config.integrations.telegram.enabled = true;
+          saveConfig(config);
+          console.log(chalk.green('✓ Telegram bot started!'));
+        } catch (error) {
+          console.log(chalk.red(`Telegram Error: ${error.message}`));
+        }
+      }
+      
+      // Discord Integration
+      if ((startAll || options.discord) && config.integrations.discord?.configured) {
+        try {
+          console.log(chalk.cyan('\n🎮 Starting Discord integration...'));
+          const { DiscordBot } = require('../lib/integrations/discord');
+          const discord = new DiscordBot(config.integrations.discord.token);
+          await discord.start(handleMessage);
+          config.integrations.discord.enabled = true;
+          saveConfig(config);
+          console.log(chalk.green('✓ Discord bot started!'));
+        } catch (error) {
+          console.log(chalk.red(`Discord Error: ${error.message}`));
+        }
+      }
+      
+      console.log(chalk.gray('\n   Press Ctrl+C to stop\n'));
       
       log(`Daemon started on port ${options.port}`);
     });
@@ -599,7 +796,7 @@ program
     
     // Interactive mode
     console.log(chalk.green(`Hello ${config.user.name}! Type your message or "exit" to quit.\n`));
-    console.log(chalk.gray('Commands: /clear (clear history), /memory (show memory), /help\n'));
+    console.log(chalk.gray('Commands: /clear (clear history), /memory (show memory), /model (change model), /help\n'));
     
     const rl = readline.createInterface({
       input: process.stdin,
@@ -641,10 +838,18 @@ program
           return;
         }
         
+        if (trimmedInput === '/model') {
+          console.log(chalk.cyan(`\nCurrent model: ${config.ai.model}`));
+          console.log(chalk.cyan(`Provider: ${config.ai.provider}\n`));
+          askQuestion();
+          return;
+        }
+        
         if (trimmedInput === '/help') {
           console.log(chalk.cyan('\nCommands:'));
           console.log('  /clear  - Clear conversation memory');
           console.log('  /memory - Show recent memory');
+          console.log('  /model  - Show current AI model');
           console.log('  /help   - Show this help');
           console.log('  exit    - Exit chat\n');
           askQuestion();
@@ -694,7 +899,67 @@ program
     console.log(logo);
     console.log(chalk.cyan(`\nSetting up ${platform} integration...\n`));
     
+    // Message handler
+    const handleMessage = async (message, context) => {
+      addToMemory('user', message);
+      const response = await getAIResponse(message, config);
+      addToMemory('assistant', response);
+      return response;
+    };
+    
     switch (platformLower) {
+      case 'whatsapp':
+        console.log(chalk.cyan('WhatsApp integration uses WhatsApp Web with QR code.\n'));
+        
+        const whatsappAnswers = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'proceed',
+            message: 'Ready to scan QR code with WhatsApp?',
+            default: true
+          }
+        ]);
+        
+        if (whatsappAnswers.proceed) {
+          console.log(chalk.yellow('\nInitializing WhatsApp connection...\n'));
+          
+          try {
+            const { WhatsAppBot } = require('../lib/integrations/whatsapp');
+            const whatsapp = new WhatsAppBot();
+            
+            // Initialize and save config
+            config.integrations.whatsapp = {
+              enabled: false,
+              configured: false
+            };
+            saveConfig(config);
+            
+            await whatsapp.start(handleMessage, {
+              onQR: (qr) => {
+                // QR code will be displayed by the library
+              },
+              onStatus: (status, msg) => {
+                if (status === 'ready') {
+                  config.integrations.whatsapp.configured = true;
+                  config.integrations.whatsapp.enabled = true;
+                  saveConfig(config);
+                  console.log(chalk.green('\n✓ WhatsApp connected successfully!'));
+                  console.log(chalk.gray('You can now send messages to your WhatsApp and ClawBee will respond.\n'));
+                  console.log(chalk.cyan('Press Ctrl+C to stop the WhatsApp connection.\n'));
+                } else if (status === 'disconnected') {
+                  console.log(chalk.yellow('\nWhatsApp disconnected. Run "clawbee connect whatsapp" to reconnect.\n'));
+                }
+              }
+            });
+            
+          } catch (error) {
+            console.log(chalk.red(`\nError: ${error.message}`));
+            console.log(chalk.gray('\nMake sure to install required dependencies:'));
+            console.log(chalk.gray('  npm install whatsapp-web.js qrcode-terminal puppeteer\n'));
+          }
+        }
+        return; // Don't show the generic message since WhatsApp runs continuously
+        
       case 'telegram':
         const telegramAnswers = await inquirer.prompt([
           {
@@ -782,36 +1047,9 @@ program
         console.log(chalk.gray('3. Add OAuth scopes: chat:write, app_mentions:read'));
         console.log(chalk.gray('4. Install app to workspace\n'));
         break;
-        
-      case 'whatsapp':
-        console.log(chalk.cyan('WhatsApp integration uses WhatsApp Web.\n'));
-        
-        const whatsappAnswers = await inquirer.prompt([
-          {
-            type: 'confirm',
-            name: 'proceed',
-            message: 'Ready to scan QR code with WhatsApp?',
-            default: true
-          }
-        ]);
-        
-        if (whatsappAnswers.proceed) {
-          config.integrations.whatsapp = {
-            enabled: true,
-            configured: false // Will be true after QR scan
-          };
-          saveConfig(config);
-          
-          console.log(chalk.yellow('\nTo complete WhatsApp setup:'));
-          console.log(chalk.gray('1. Run "clawbee start"'));
-          console.log(chalk.gray('2. A QR code will appear'));
-          console.log(chalk.gray('3. Open WhatsApp > Settings > Linked Devices'));
-          console.log(chalk.gray('4. Scan the QR code\n'));
-        }
-        break;
     }
     
-    console.log(chalk.green('Run "clawbee start" to activate integrations.\n'));
+    console.log(chalk.green('Run "clawbee start --all" to activate all integrations.\n'));
     log(`Integration configured: ${platform}`);
   });
 
@@ -919,7 +1157,6 @@ program
         
         const installSpinner = ora(`Installing ${name}...`).start();
         
-        // Create skill directory with placeholder
         const skillDir = path.join(skillsDir, name);
         if (fs.existsSync(skillDir)) {
           installSpinner.fail(`Skill ${name} is already installed.`);
@@ -928,7 +1165,6 @@ program
         
         fs.mkdirSync(skillDir, { recursive: true });
         
-        // Create manifest
         const manifest = {
           name: name,
           version: '1.0.0',
@@ -942,7 +1178,6 @@ program
           JSON.stringify(manifest, null, 2)
         );
         
-        // Create basic skill file
         fs.writeFileSync(
           path.join(skillDir, 'index.js'),
           `// ${name} skill\nmodule.exports = { name: '${name}' };\n`
@@ -1051,7 +1286,7 @@ program
       case 'set':
         if (!key || value === undefined) {
           console.log(chalk.red('Usage: clawbee config set <key> <value>'));
-          console.log(chalk.gray('Example: clawbee config set ai.model gpt-4-turbo\n'));
+          console.log(chalk.gray('Example: clawbee config set ai.model gpt-5.2\n'));
           return;
         }
         
@@ -1131,22 +1366,9 @@ program
         });
         break;
         
-      case 'edit':
-        const editor = process.env.EDITOR || 'nano';
-        const { spawn } = require('child_process');
-        
-        if (!config) {
-          console.log(chalk.red('No configuration to edit. Run "clawbee onboard" first.\n'));
-          return;
-        }
-        
-        console.log(chalk.gray(`Opening ${getConfigPath()} in ${editor}...\n`));
-        spawn(editor, [getConfigPath()], { stdio: 'inherit' });
-        break;
-        
       default:
         console.log(chalk.red(`Unknown action: ${action}`));
-        console.log(chalk.gray('Available actions: show, set, get, reset, edit\n'));
+        console.log(chalk.gray('Available actions: show, set, get, reset\n'));
     }
   });
 
@@ -1229,7 +1451,6 @@ program
   .command('logs')
   .description('View ClawBee logs')
   .option('-n, --lines <number>', 'Number of lines to show', '50')
-  .option('-f, --follow', 'Follow log output')
   .action((options) => {
     console.log(miniLogo + chalk.gray(' Logs\n'));
     
@@ -1272,6 +1493,19 @@ program
     console.log('');
     console.log(chalk.cyan('Config Dir:   ') + CONFIG_DIR);
     console.log(chalk.cyan('Data Dir:     ') + DATA_DIR);
+    console.log('');
+    console.log(chalk.cyan('Supported AI Providers:'));
+    console.log(chalk.gray('  • Emergent Universal Key (OpenAI, Anthropic, Gemini)'));
+    console.log(chalk.gray('  • OpenAI (GPT-4, GPT-4o, etc.)'));
+    console.log(chalk.gray('  • Anthropic (Claude 3)'));
+    console.log(chalk.gray('  • Google (Gemini)'));
+    console.log(chalk.gray('  • Local (Ollama)'));
+    console.log('');
+    console.log(chalk.cyan('Supported Integrations:'));
+    console.log(chalk.gray('  • WhatsApp (via QR code)'));
+    console.log(chalk.gray('  • Telegram'));
+    console.log(chalk.gray('  • Discord'));
+    console.log(chalk.gray('  • Slack'));
     console.log('');
   });
 

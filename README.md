@@ -10,12 +10,12 @@ ClawBee is an open-source AI assistant that runs locally on your machine and con
 ## ✨ Features
 
 - 🖥️ **Runs Locally** - Your data stays on your machine
-- 💬 **Any Chat App** - WhatsApp, Telegram, Discord, Slack, and more
+- 💬 **Any Chat App** - WhatsApp (QR code), Telegram, Discord, Slack
 - 🧠 **Persistent Memory** - Remembers context across conversations
 - 🌐 **Browser Control** - Automate web tasks with Puppeteer
 - 🔧 **Extensible** - Add skills from the marketplace or build your own
 - 🔐 **Private & Secure** - Full control over your data
-- 🤖 **Multi-AI Support** - OpenAI, Anthropic, Google, or local models (Ollama)
+- 🤖 **Multi-AI Support** - Emergent Universal Key, OpenAI, Anthropic, Google, or local models
 
 ## 🚀 Quick Start
 
@@ -54,14 +54,14 @@ clawbee onboard
 # Initial setup
 clawbee onboard
 
-# Start the daemon
-clawbee start
-
 # Chat in terminal
 clawbee chat
 
 # Send a single message
 clawbee chat -s "What's the weather like?"
+
+# Start daemon with all integrations
+clawbee start --all
 
 # Check status
 clawbee status
@@ -76,6 +76,9 @@ clawbee update
 ### Connect Chat Platforms
 
 ```bash
+# Connect WhatsApp (with QR code scanning)
+clawbee connect whatsapp
+
 # Connect Telegram
 clawbee connect telegram
 
@@ -84,9 +87,6 @@ clawbee connect discord
 
 # Connect Slack
 clawbee connect slack
-
-# Connect WhatsApp (coming soon)
-clawbee connect whatsapp
 ```
 
 ### Manage Skills
@@ -112,7 +112,7 @@ clawbee skills remove email-manager
 clawbee config show
 
 # Set a value
-clawbee config set ai.model gpt-4-turbo
+clawbee config set ai.model gpt-5.2
 clawbee config set ai.temperature 0.8
 
 # Get a value
@@ -120,9 +120,6 @@ clawbee config get ai.provider
 
 # Reset configuration
 clawbee config reset
-
-# Edit config file directly
-clawbee config edit
 ```
 
 ### Memory Management
@@ -143,39 +140,55 @@ clawbee memory stats
 
 ## 🔌 AI Providers
 
-ClawBee supports multiple AI providers:
+ClawBee supports multiple AI providers with a single universal key!
+
+### Emergent Universal Key (Recommended)
+
+Use one key for all AI providers:
+
+| Provider | Models Available |
+|----------|------------------|
+| OpenAI | GPT-5.2, GPT-5.1, GPT-5, GPT-4o, O3, O4-mini |
+| Anthropic | Claude 4 Sonnet, Claude 4 Opus, Claude Opus 4.6 |
+| Google | Gemini 2.5 Pro, Gemini 3 Flash, Gemini 3 Pro |
+
+### Individual Provider Keys
 
 | Provider | Models | API Key Required |
 |----------|--------|------------------|
-| OpenAI | GPT-4, GPT-4 Turbo, GPT-3.5 | Yes |
+| OpenAI | GPT-4, GPT-4o, GPT-4 Turbo | Yes |
 | Anthropic | Claude 3 Opus, Sonnet, Haiku | Yes |
-| Google | Gemini Pro, Gemini Pro Vision | Yes |
-| Ollama | Llama 2, Mistral, CodeLlama, etc. | No (local) |
+| Google | Gemini Pro, Gemini 1.5 Pro | Yes |
+| Ollama | Llama 2, Llama 3, Mistral, CodeLlama | No (local) |
 
 ### Setting up API Keys
 
 ```bash
-# OpenAI
+# Emergent Universal Key (works for all providers)
+clawbee config set ai.apiKey your-emergent-universal-key
+
+# Or individual provider keys
 clawbee config set ai.apiKey sk-your-openai-key
-
-# Anthropic
-clawbee config set ai.apiKey sk-ant-your-anthropic-key
-
-# Google
-clawbee config set ai.apiKey your-google-api-key
 ```
 
 ### Using Local Models (Ollama)
 
 1. Install Ollama: https://ollama.ai
-2. Pull a model: `ollama pull llama2`
+2. Pull a model: `ollama pull llama3`
 3. Configure ClawBee:
    ```bash
    clawbee config set ai.provider local
-   clawbee config set ai.model llama2
+   clawbee config set ai.model llama3
    ```
 
 ## 🔗 Integrations
+
+### WhatsApp (via QR Code)
+
+1. Run `clawbee connect whatsapp`
+2. Scan the QR code with your phone
+3. Open WhatsApp > Settings > Linked Devices > Link a Device
+4. ClawBee will respond to your messages!
 
 ### Telegram
 
@@ -214,6 +227,7 @@ clawbee config set ai.apiKey your-google-api-key
 ├── logs/                # Log files
 │   └── clawbee.log
 └── integrations/        # Integration data
+    └── whatsapp/        # WhatsApp session
 ```
 
 ## 🛠️ Development
@@ -224,6 +238,32 @@ clawbee config set ai.apiKey your-google-api-key
 git clone https://github.com/clawbeepro/clawbee.git
 cd clawbee
 npm install
+```
+
+### Using as a Library
+
+```javascript
+const { AIProvider, WhatsAppBot, TelegramBot } = require('clawbee');
+
+// Create AI provider with Emergent Universal Key
+const ai = new AIProvider({
+  provider: 'emergent',
+  apiKey: 'your-emergent-key',
+  model: 'gpt-5.2'
+});
+
+// Chat
+const response = await ai.chat([
+  { role: 'user', content: 'Hello!' }
+]);
+
+console.log(response.content);
+
+// Use with different models (same key!)
+ai.withModel('anthropic', 'claude-4-sonnet-20250514');
+const claudeResponse = await ai.chat([
+  { role: 'user', content: 'Hello from Claude!' }
+]);
 ```
 
 ### Creating a Skill
@@ -259,26 +299,6 @@ module.exports = {
     return "Trigger activated!";
   }
 };
-```
-
-### Using as a Library
-
-```javascript
-const { AIProvider, SkillManager } = require('clawbee');
-
-// Create AI provider
-const ai = new AIProvider({
-  provider: 'openai',
-  apiKey: 'sk-...',
-  model: 'gpt-4'
-});
-
-// Chat
-const response = await ai.chat([
-  { role: 'user', content: 'Hello!' }
-]);
-
-console.log(response.content);
 ```
 
 ## 🤝 Contributing
