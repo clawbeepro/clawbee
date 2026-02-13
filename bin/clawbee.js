@@ -2,7 +2,7 @@
 
 /**
  * ClawBee CLI - Your Personal AI, Endless Possibilities
- * https://clawbee.pro
+ * https://clawbee.io
  * 
  * A fully functional AI assistant that runs locally
  * Supports multiple AI providers including Emergent Universal Key
@@ -19,7 +19,7 @@ const axios = require('axios');
 const http = require('http');
 const readline = require('readline');
 
-const VERSION = '2.2.1';
+const VERSION = '2.2.2';
 const CONFIG_DIR = path.join(os.homedir(), '.config', 'clawbee');
 const DATA_DIR = path.join(os.homedir(), '.local', 'share', 'clawbee');
 const LOG_FILE = path.join(DATA_DIR, 'logs', 'clawbee.log');
@@ -584,7 +584,7 @@ program
     console.log(chalk.yellow('  clawbee start') + '       - Start daemon with integrations');
     console.log(chalk.yellow('  clawbee skills') + '      - Manage skills');
     console.log(chalk.yellow('  clawbee help') + '        - Show all commands');
-    console.log('\n' + chalk.gray('Documentation: https://clawbee.pro/docs'));
+    console.log('\n' + chalk.gray('Documentation: https://clawbee.io/docs'));
     console.log(chalk.gray('Community: https://discord.gg/y34Nvc7N36\n'));
     
     log('Onboarding completed successfully');
@@ -1133,7 +1133,7 @@ program
           console.log(chalk.gray('  • web-scraper - Web data extraction'));
           console.log(chalk.gray('  • code-review - AI code reviews\n'));
           console.log(chalk.gray('Install with: clawbee skills install <name>'));
-          console.log(chalk.gray('Browse all: https://clawbee.pro/marketplace\n'));
+          console.log(chalk.gray('Browse all: https://clawbee.io/marketplace\n'));
         } else {
           console.log(chalk.cyan('Installed Skills:\n'));
           installedSkills.forEach(skill => {
@@ -1239,7 +1239,7 @@ program
         });
         
         console.log(chalk.gray('Install with: clawbee skills install <name>'));
-        console.log(chalk.gray('Full catalog: https://clawbee.pro/marketplace\n'));
+        console.log(chalk.gray('Full catalog: https://clawbee.io/marketplace\n'));
         break;
         
       default:
@@ -1484,10 +1484,10 @@ program
     console.log(logo);
     console.log(tagline);
     console.log(chalk.cyan('Version:      ') + VERSION);
-    console.log(chalk.cyan('Homepage:     ') + 'https://clawbee.pro');
+    console.log(chalk.cyan('Homepage:     ') + 'https://clawbee.io');
     console.log(chalk.cyan('GitHub:       ') + 'https://github.com/clawbeepro/clawbee');
     console.log(chalk.cyan('npm:          ') + 'https://www.npmjs.com/package/clawbee');
-    console.log(chalk.cyan('Docs:         ') + 'https://clawbee.pro/docs');
+    console.log(chalk.cyan('Docs:         ') + 'https://clawbee.io/docs');
     console.log(chalk.cyan('Discord:      ') + 'https://discord.gg/y34Nvc7N36');
     console.log(chalk.cyan('License:      ') + 'MIT');
     console.log('');

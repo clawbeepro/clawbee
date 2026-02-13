@@ -1,6 +1,6 @@
 /**
  * ClawBee - Your Personal AI, Endless Possibilities
- * https://clawbee.pro
+ * https://clawbee.io
  */
 
 export { ClawBee } from './core/clawbee';

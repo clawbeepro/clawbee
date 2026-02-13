@@ -38,7 +38,7 @@ Thank you for your interest in contributing to ClawBee! 🐝
 
 ### Creating Skills
 
-See our [Skill Development Guide](https://docs.clawbee.pro/skills) for creating custom skills.
+See our [Skill Development Guide](https://docs.clawbee.io/skills) for creating custom skills.
 
 ## Development Setup
 

@@ -1,6 +1,6 @@
 {
   "name": "clawbee",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "ClawBee - Your Personal AI, Endless Possibilities. AI assistant that runs locally and connects to any chat app. Supports Emergent Universal Key for GPT-5, Claude 4, and Gemini 3.",
   "main": "lib/index.js",
   "bin": {
@@ -42,13 +42,13 @@
     "emergent",
     "universal-key"
   ],
-  "author": "ClawBee Team <hello@clawbee.pro>",
+  "author": "ClawBee Team <hello@clawbee.io>",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/clawbeepro/clawbee.git"
   },
-  "homepage": "https://clawbee.pro",
+  "homepage": "https://clawbee.io",
   "bugs": {
     "url": "https://github.com/clawbeepro/clawbee/issues"
   },
